@@ -1,0 +1,287 @@
+@page
+@model MuruganRestaurant.Pages.Billing.CreateModel
+@{
+    ViewData["Title"] = "Billing - Murugan Restaurant";
+}
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
+    var antiForgeryToken = Xsrf.GetAndStoreTokens(HttpContext).RequestToken;
+}
+<input type="hidden" name="__RequestVerificationToken" value="@antiForgeryToken" />
+
+<div class="container-fluid mt-3">
+    <div class="row">
+        <!-- Food Menu -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🍽️ Food Menu</h5>
+                    <input type="text" id="searchFood" class="form-control form-control-sm w-50" placeholder="Search food..." oninput="filterMenu(this.value)" />
+                </div>
+                <div class="card-body" style="max-height: 620px; overflow-y: auto;">
+                    <div class="row" id="menuGrid">
+                        @foreach (var item in Model.FoodItems)
+                        {
+                            <div class="col-md-4 mb-3 menu-item" data-name="@item.FoodName.ToLower()">
+                                <div class="card h-100 shadow-sm">
+                                    @if (!string.IsNullOrEmpty(item.ImagePath))
+                                    {
+                                        <img src="@item.ImagePath" class="card-img-top" alt="@item.FoodName"
+                                             style="height: 130px; object-fit: cover;" onerror="this.src='/images/placeholder.jpg'" />
+                                    }
+                                    else
+                                    {
+                                        <div style="height:130px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:40px;">🍽️</div>
+                                    }
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title mb-1" style="font-size:13px;">@item.FoodName</h6>
+                                        <p class="card-text text-danger fw-bold mb-2">₹@item.Price</p>
+                                        <div class="input-group input-group-sm mb-2">
+                                            <button class="btn btn-outline-secondary" onclick="changeQty(@item.FoodId, -1)">-</button>
+                                            <input type="number" id="qty_@item.FoodId" class="form-control text-center" value="1" min="1" />
+                                            <button class="btn btn-outline-secondary" onclick="changeQty(@item.FoodId, 1)">+</button>
+                                        </div>
+                                        <button class="btn btn-sm btn-success w-100" onclick="addToCart(@item.FoodId, '@item.FoodName.Replace("'","\\'")', @item.Price)">
+                                            + Add
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart -->
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">🛒 Bill</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label mb-1">Customer Name</label>
+                            <input type="text" id="customerName" class="form-control form-control-sm" placeholder="Walk-in" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1">Phone</label>
+                            <input type="text" id="customerPhone" class="form-control form-control-sm" placeholder="Optional" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1">Payment Method</label>
+                        <select id="paymentMethod" class="form-control form-control-sm">
+                            <option value="Cash">Cash</option>
+                            <option value="Card">Card</option>
+                            <option value="UPI">UPI</option>
+                        </select>
+                    </div>
+
+                    <div id="cartItems" style="max-height:260px;overflow-y:auto;"></div>
+
+                    <hr class="my-2" />
+                    <div class="row small">
+                        <div class="col-6">Sub Total:</div>
+                        <div class="col-6 text-end fw-bold" id="subTotal">₹0.00</div>
+                        <div class="col-6">Tax (5%):</div>
+                        <div class="col-6 text-end fw-bold" id="tax">₹0.00</div>
+                        <div class="col-6">Discount (₹):</div>
+                        <div class="col-6 text-end">
+                            <input type="number" id="discount" class="form-control form-control-sm d-inline" style="width:80px;" value="0" min="0" oninput="updateCartDisplay()" />
+                        </div>
+                    </div>
+                    <hr class="my-2" />
+                    <div class="row fw-bold fs-5">
+                        <div class="col-6">Total:</div>
+                        <div class="col-6 text-end text-danger" id="total">₹0.00</div>
+                    </div>
+
+                    <button class="btn btn-danger w-100 mt-3" onclick="generateBill()">🧾 Generate Bill</button>
+                </div>
+            </div>
+
+            <!-- Reprint Section -->
+            <div class="card mt-3">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">🖨️ Reprint Bill</h6>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <input type="text" id="reprintBillNumber" class="form-control form-control-sm" placeholder="Enter Bill Number e.g. BILL-20240101-..." />
+                        <button class="btn btn-outline-secondary btn-sm" onclick="reprintBill()">Reprint</button>
+                    </div>
+                    <div id="recentBills" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bill Print Modal -->
+<div class="modal fade" id="billModal" tabindex="-1" aria-labelledby="billModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white py-2">
+                <h6 class="modal-title" id="billModalLabel">🧾 Bill Receipt</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="billFrame" src="" style="width:100%;height:520px;border:none;"></iframe>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-success btn-sm" onclick="printBillFrame()">🖨️ Print</button>
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cart = [];
+
+    function filterMenu(val) {
+        document.querySelectorAll('.menu-item').forEach(el => {
+            el.style.display = el.dataset.name.includes(val.toLowerCase()) ? '' : 'none';
+        });
+    }
+
+    function changeQty(id, delta) {
+        let input = document.getElementById(`qty_${id}`);
+        let val = parseInt(input.value) + delta;
+        if (val >= 1) input.value = val;
+    }
+
+    function addToCart(id, name, price) {
+        let qty = parseInt(document.getElementById(`qty_${id}`).value) || 1;
+        let existing = cart.find(i => i.foodId === id);
+        if (existing) {
+            existing.quantity += qty;
+        } else {
+            cart.push({ foodId: id, foodName: name, price: price, quantity: qty });
+        }
+        updateCartDisplay();
+    }
+
+    function updateCartDisplay() {
+        if (cart.length === 0) {
+            document.getElementById('cartItems').innerHTML = '<p class="text-muted text-center small">No items added</p>';
+        } else {
+            let html = '<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th><th></th></tr></thead><tbody>';
+            cart.forEach((item, i) => {
+                let t = item.price * item.quantity;
+                html += `<tr>
+                    <td style="font-size:12px;">${item.foodName}</td>
+                    <td><input type="number" value="${item.quantity}" onchange="updateQty(${i},this.value)" style="width:45px;font-size:12px;" class="form-control form-control-sm p-0 text-center"></td>
+                    <td style="font-size:12px;">₹${item.price}</td>
+                    <td style="font-size:12px;">₹${t.toFixed(2)}</td>
+                    <td><button class="btn btn-danger btn-sm p-0 px-1" onclick="removeItem(${i})">✕</button></td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('cartItems').innerHTML = html;
+        }
+
+        let subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+        let tax = subtotal * 0.05;
+        let discount = parseFloat(document.getElementById('discount').value) || 0;
+        let total = subtotal + tax - discount;
+
+        document.getElementById('subTotal').innerHTML = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('tax').innerHTML = `₹${tax.toFixed(2)}`;
+        document.getElementById('total').innerHTML = `₹${total.toFixed(2)}`;
+    }
+
+    function updateQty(index, qty) {
+        cart[index].quantity = parseInt(qty) || 1;
+        if (cart[index].quantity <= 0) cart.splice(index, 1);
+        updateCartDisplay();
+    }
+
+    function removeItem(index) {
+        cart.splice(index, 1);
+        updateCartDisplay();
+    }
+
+    function generateBill() {
+        if (cart.length === 0) { alert('Please add items to cart'); return; }
+
+        let billData = {
+            customerName: document.getElementById('customerName').value || 'Walk-in',
+            customerPhone: document.getElementById('customerPhone').value,
+            paymentMethod: document.getElementById('paymentMethod').value,
+            discount: parseFloat(document.getElementById('discount').value) || 0,
+            items: cart.map(i => ({ foodId: i.foodId, foodName: i.foodName, price: i.price, quantity: i.quantity, imagePath: '' }))
+        };
+
+        fetch('/Billing/Create?handler=GenerateBill', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.getElementsByName('__RequestVerificationToken')[0].value
+            },
+            body: JSON.stringify(billData)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Clear cart
+                cart = [];
+                updateCartDisplay();
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerPhone').value = '';
+                document.getElementById('discount').value = '0';
+                // Show bill in modal (same window)
+                openBillModal(data.billId);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => alert('Error generating bill: ' + err.message));
+    }
+
+    function openBillModal(billId) {
+        document.getElementById('billFrame').src = '/Billing/Print?id=' + billId;
+        var modal = new bootstrap.Modal(document.getElementById('billModal'));
+        modal.show();
+    }
+
+    function printBillFrame() {
+        document.getElementById('billFrame').contentWindow.print();
+    }
+
+    function reprintBill() {
+        let billNumber = document.getElementById('reprintBillNumber').value.trim();
+        if (!billNumber) { alert('Please enter a bill number'); return; }
+
+        fetch('/Billing/Create?handler=GetBillId&billNumber=' + encodeURIComponent(billNumber), {
+            headers: { 'RequestVerificationToken': document.getElementsByName('__RequestVerificationToken')[0].value }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                openBillModal(data.billId);
+            } else {
+                alert('Bill not found: ' + data.message);
+            }
+        })
+        .catch(err => alert('Error: ' + err.message));
+    }
+
+    // Load recent bills for quick reprint
+    window.addEventListener('DOMContentLoaded', () => {
+        updateCartDisplay();
+        fetch('/Billing/Create?handler=RecentBills')
+        .then(r => r.json())
+        .then(data => {
+            if (data.bills && data.bills.length > 0) {
+                let html = '<p class="small text-muted mb-1">Recent Bills:</p>';
+                data.bills.forEach(b => {
+                    html += `<button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="openBillModal(${b.billId})">${b.billNumber}</button>`;
+                });
+                document.getElementById('recentBills').innerHTML = html;
+            }
+        }).catch(() => {});
+    });
+</script>

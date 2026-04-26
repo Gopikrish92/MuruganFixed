@@ -1,0 +1,51 @@
+# Build / VS
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# ASP.NET / .NET
+*.db
+*.db-journal
+*.DS_Store
+appsettings.*.json
+secrets.json
+*.pfx
+*.key
+*.pubxml
+
+# NuGet
+*.nupkg
+# Packages folder (if present)
+packages/
+
+# Microsoft Azure Web App publish settings
+*.PublishSettings
+
+# Logs
+*.log
+
+# JetBrains
+*.idea/
+
+# macOS
+.DS_Store
+
+# Rider caches
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# npm
+node_modules/
+
+# Docker
+docker-compose.override.yml
+.env

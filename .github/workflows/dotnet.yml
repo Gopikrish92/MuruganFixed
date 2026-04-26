@@ -1,0 +1,7 @@
+# ensure VS closed, then
+rd /s /q .vs
+# then
+git rm -r --cached .vs
+git add .gitignore
+git commit -m "Remove .vs from repo and add to .gitignore"
+git push

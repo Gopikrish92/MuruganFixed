@@ -1,0 +1,208 @@
+@page
+@model MuruganRestaurant.Pages.FoodItems.IndexModel
+@{
+    ViewData["Title"] = "Manage Food Items";
+}
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
+    var antiForgeryToken = Xsrf.GetAndStoreTokens(HttpContext).RequestToken;
+}
+
+<div class="container mt-3">
+    <div class="card">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">🍽️ Manage Food Items</h5>
+            <button class="btn btn-light btn-sm" onclick="openAddModal()">+ Add New Item</button>
+        </div>
+        <div class="card-body">
+            <input type="hidden" id="afToken" value="@antiForgeryToken" />
+            <div class="row" id="foodGrid">
+                @foreach (var item in Model.FoodItems)
+                {
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100 shadow-sm">
+                            @if (!string.IsNullOrEmpty(item.ImagePath))
+                            {
+                                <img src="@item.ImagePath" class="card-img-top" style="height:140px;object-fit:cover;" onerror="this.src='/images/placeholder.jpg'" />
+                            }
+                            else
+                            {
+                                <div style="height:140px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:48px;">🍽️</div>
+                            }
+                            <div class="card-body p-2">
+                                <h6 class="mb-0">@item.FoodName</h6>
+                                <small class="text-muted">@item.Category</small>
+                                <p class="text-danger fw-bold mb-1">₹@item.Price</p>
+                                <span class="badge @(item.IsAvailable ? "bg-success" : "bg-secondary")">
+                                    @(item.IsAvailable ? "Available" : "Unavailable")
+                                </span>
+                                <div class="mt-2 d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary flex-fill" onclick='editItem(@item.FoodId, "@item.FoodName", "@item.Category", @item.Price, "@item.ImagePath", @(item.IsAvailable ? "true" : "false"))'>Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger flex-fill" onclick="deleteItem(@item.FoodId)">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="foodModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalTitle">Add Food Item</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editFoodId" value="0" />
+                <div class="mb-3">
+                    <label class="form-label">Food Name *</label>
+                    <input type="text" id="foodName" class="form-control" placeholder="e.g. Butter Chicken" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Category *</label>
+                    <select id="foodCategory" class="form-control">
+                        <option value="Starters">Starters</option>
+                        <option value="Main Course">Main Course</option>
+                        <option value="Biryani">Biryani</option>
+                        <option value="Breads">Breads</option>
+                        <option value="Rice">Rice</option>
+                        <option value="Desserts">Desserts</option>
+                        <option value="Beverages">Beverages</option>
+                        <option value="Snacks">Snacks</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price (₹) *</label>
+                    <input type="number" id="foodPrice" class="form-control" placeholder="0.00" min="0" step="0.01" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Food Image</label>
+                    <input type="file" id="foodImageFile" class="form-control" accept="image/*" onchange="previewImage(this)" />
+                    <div class="mt-2" id="imagePreviewDiv" style="display:none;">
+                        <img id="imagePreview" src="" style="max-height:150px;max-width:100%;border-radius:8px;" />
+                    </div>
+                    <input type="hidden" id="foodImagePath" value="" />
+                    <small class="text-muted">Upload JPG, PNG, GIF (max 2MB)</small>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" id="isAvailable" class="form-check-input" checked />
+                        <label class="form-check-label">Available for Order</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="saveFoodItem()" id="saveBtn">Save Item</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = document.getElementById('afToken').value;
+
+    function openAddModal() {
+        document.getElementById('modalTitle').innerText = 'Add Food Item';
+        document.getElementById('editFoodId').value = '0';
+        document.getElementById('foodName').value = '';
+        document.getElementById('foodCategory').value = 'Starters';
+        document.getElementById('foodPrice').value = '';
+        document.getElementById('foodImagePath').value = '';
+        document.getElementById('foodImageFile').value = '';
+        document.getElementById('imagePreviewDiv').style.display = 'none';
+        document.getElementById('isAvailable').checked = true;
+        new bootstrap.Modal(document.getElementById('foodModal')).show();
+    }
+
+    function editItem(id, name, category, price, imagePath, isAvailable) {
+        document.getElementById('modalTitle').innerText = 'Edit Food Item';
+        document.getElementById('editFoodId').value = id;
+        document.getElementById('foodName').value = name;
+        document.getElementById('foodCategory').value = category;
+        document.getElementById('foodPrice').value = price;
+        document.getElementById('foodImagePath').value = imagePath;
+        document.getElementById('foodImageFile').value = '';
+        document.getElementById('isAvailable').checked = isAvailable;
+        if (imagePath) {
+            document.getElementById('imagePreview').src = imagePath;
+            document.getElementById('imagePreviewDiv').style.display = 'block';
+        } else {
+            document.getElementById('imagePreviewDiv').style.display = 'none';
+        }
+        new bootstrap.Modal(document.getElementById('foodModal')).show();
+    }
+
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('imagePreview').src = e.target.result;
+                document.getElementById('imagePreviewDiv').style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    async function saveFoodItem() {
+        const name = document.getElementById('foodName').value.trim();
+        const category = document.getElementById('foodCategory').value;
+        const price = parseFloat(document.getElementById('foodPrice').value);
+
+        if (!name || !category || isNaN(price)) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+
+        try {
+            const formData = new FormData();
+            formData.append('foodId', document.getElementById('editFoodId').value);
+            formData.append('foodName', name);
+            formData.append('category', category);
+            formData.append('price', price);
+            formData.append('isAvailable', document.getElementById('isAvailable').checked);
+            formData.append('existingImagePath', document.getElementById('foodImagePath').value);
+            formData.append('__RequestVerificationToken', token);
+
+            const fileInput = document.getElementById('foodImageFile');
+            if (fileInput.files.length > 0) {
+                formData.append('imageFile', fileInput.files[0]);
+            }
+
+            const response = await fetch('?handler=SaveFood', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('foodModal')).hide();
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Save Item';
+        }
+    }
+
+    async function deleteItem(id) {
+        if (!confirm('Delete this food item?')) return;
+        const formData = new FormData();
+        formData.append('foodId', id);
+        formData.append('__RequestVerificationToken', token);
+        const response = await fetch('?handler=DeleteFood', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.success) window.location.reload();
+        else alert('Error: ' + data.message);
+    }
+</script>

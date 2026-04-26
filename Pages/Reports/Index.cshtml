@@ -1,0 +1,243 @@
+@page
+@model MuruganRestaurant.Pages.Reports.IndexModel
+@{
+    ViewData["Title"] = "Reports - Murugan Restaurant";
+}
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{ var antiForgeryToken = Xsrf.GetAndStoreTokens(HttpContext).RequestToken; }
+
+<input type="hidden" id="afToken" value="@antiForgeryToken" />
+
+<!-- Filter Card -->
+<div class="card mb-4">
+    <div class="card-header ch-orange d-flex align-items-center gap-2">
+        <i class="fas fa-chart-bar"></i> Bill Reports
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label>From Date</label>
+                <input type="date" id="fromDate" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label>To Date</label>
+                <input type="date" id="toDate" class="form-control" />
+            </div>
+            <div class="col-md-6 d-flex gap-2 flex-wrap">
+                <button class="btn btn-orange" onclick="generateReport()">
+                    <i class="fas fa-search me-1"></i> Generate
+                </button>
+                <button class="btn btn-success" onclick="downloadExcel()">
+                    <i class="fas fa-file-excel me-1"></i> Excel
+                </button>
+                <button class="btn btn-info text-white" onclick="openEmailModal()">
+                    <i class="fas fa-envelope me-1"></i> Send Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="card">
+    <div class="card-body p-0" id="reportResult">
+        <div class="text-muted text-center py-5">
+            <i class="fas fa-calendar-alt fa-2x mb-3 d-block opacity-25"></i>
+            Select a date range and click Generate
+        </div>
+    </div>
+</div>
+
+<!-- ✅ Send Email Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header py-3" style="background:linear-gradient(135deg,#f97316,#ea580c);">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="fas fa-paper-plane text-white"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title text-white mb-0 fw-bold">Send Report via Email</h6>
+                        <small class="text-white opacity-75">CSV attachment will be sent</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Date range summary -->
+                <div class="rounded-3 p-3 mb-4" style="background:#fff7ed;border:1px solid #fed7aa;">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="fas fa-calendar-range text-warning"></i>
+                        <span class="fw-bold text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;">Report Period</span>
+                    </div>
+                    <div class="fw-bold" id="emailDateSummary" style="color:#1a1f2e;">—</div>
+                </div>
+
+                <!-- Email input -->
+                <div class="mb-2">
+                    <label class="fw-bold mb-2" style="font-size:13px;">
+                        <i class="fas fa-at me-1 text-muted"></i> Recipient Email Address
+                    </label>
+                    <input type="email" id="recipientEmail" class="form-control form-control-lg"
+                           placeholder="e.g. owner@gmail.com"
+                           style="border-radius:12px;font-size:14px;" />
+                    <div class="text-danger small mt-1" id="emailError" style="display:none;">
+                        <i class="fas fa-exclamation-circle me-1"></i> Please enter a valid email address
+                    </div>
+                </div>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    The bill report CSV will be sent as an email attachment.
+                </small>
+            </div>
+            <div class="modal-footer border-0 pt-0 px-4 pb-4 gap-2">
+                <button class="btn btn-light flex-fill" data-bs-dismiss="modal" style="border-radius:10px;">
+                    Cancel
+                </button>
+                <button class="btn btn-orange flex-fill fw-bold" id="sendEmailBtn" onclick="confirmSendEmail()" style="border-radius:10px;">
+                    <i class="fas fa-paper-plane me-1"></i> Send Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bill Print Modal -->
+<div class="modal fade" id="billPrintModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:430px;">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header ch-orange py-2">
+                <h6 class="modal-title text-white"><i class="fas fa-receipt me-2"></i>Bill Receipt</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="billPrintFrame" src="" style="width:100%;height:520px;border:none;"></iframe>
+            </div>
+            <div class="modal-footer py-2">
+                <button class="btn btn-success btn-sm" onclick="document.getElementById('billPrintFrame').contentWindow.print()">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+    function openBillPrint(billId) {
+        document.getElementById('billPrintFrame').src = '/Billing/Print?id=' + billId;
+        new bootstrap.Modal(document.getElementById('billPrintModal')).show();
+    }
+
+    function openEmailModal() {
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        if (!fromDate || !toDate) {
+            alert('Please select both From Date and To Date first');
+            return;
+        }
+        // Format date nicely for summary
+        const fmt = d => new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+        document.getElementById('emailDateSummary').innerHTML =
+            `<i class="fas fa-arrow-right mx-2 text-warning"></i>`.replace('',
+            `${fmt(fromDate)} <i class="fas fa-arrow-right mx-1 text-warning"></i> ${fmt(toDate)}`);
+        document.getElementById('emailDateSummary').innerText = `${fmt(fromDate)}  →  ${fmt(toDate)}`;
+        document.getElementById('recipientEmail').value = '';
+        document.getElementById('emailError').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('emailModal')).show();
+        setTimeout(() => document.getElementById('recipientEmail').focus(), 400);
+    }
+
+    async function confirmSendEmail() {
+        const email = document.getElementById('recipientEmail').value.trim();
+        const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            document.getElementById('emailError').style.display = 'block';
+            document.getElementById('recipientEmail').focus();
+            return;
+        }
+        document.getElementById('emailError').style.display = 'none';
+
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+
+        const btn = document.getElementById('sendEmailBtn');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('?handler=SendEmail', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.getElementById('afToken').value
+                },
+                body: JSON.stringify({ fromDate, toDate, toEmail: email })
+            });
+            const text = await resp.text();
+            if (!text.trim()) { alert('Server returned empty response'); return; }
+            const data = JSON.parse(text);
+
+            bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
+
+            if (data.success) {
+                showToast('✅ Report sent to ' + email, 'success');
+            } else {
+                showToast('❌ ' + data.message, 'danger');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        } finally {
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Send Now';
+            btn.disabled = false;
+        }
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position:fixed; bottom:24px; right:24px; z-index:9999;
+            background:${type === 'success' ? '#22c55e' : '#ef4444'};
+            color:#fff; padding:14px 20px; border-radius:12px;
+            font-weight:700; font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,0.15);
+            animation: slideUp 0.3s ease;
+        `;
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    async function generateReport() {
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        if (!fromDate || !toDate) { alert('Please select both dates'); return; }
+
+        document.getElementById('reportResult').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-warning"></div>
+                <p class="mt-2 text-muted">Loading report...</p>
+            </div>`;
+
+        try {
+            const fd = new FormData();
+            fd.append('fromDate', fromDate);
+            fd.append('toDate', toDate);
+            fd.append('__RequestVerificationToken', document.getElementById('afToken').value);
+            const resp = await fetch('?handler=GenerateReport', { method: 'POST', body: fd });
+            document.getElementById('reportResult').innerHTML = await resp.text();
+        } catch (err) {
+            document.getElementById('reportResult').innerHTML =
+                `<div class="alert alert-danger m-3">Error: ${err.message}</div>`;
+        }
+    }
+
+    function downloadExcel() {
+        const table = document.getElementById('reportTable');
+        if (!table) { alert('Generate a report first'); return; }
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(table), 'Bills');
+        XLSX.writeFile(wb, `Bills_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+</script>

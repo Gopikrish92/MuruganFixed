@@ -1,0 +1,284 @@
+@page
+@model MuruganRestaurant.Pages.Users.IndexModel
+@{
+    ViewData["Title"] = "User Management - Murugan Restaurant";
+}
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{ var token = Xsrf.GetAndStoreTokens(HttpContext).RequestToken; }
+
+<input type="hidden" id="afToken" value="@token" />
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card bg-white">
+            <div class="stat-icon" style="background:#fef3c7;color:#f59e0b;"><i class="fas fa-users"></i></div>
+            <div>
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value">@Model.Users.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card bg-white">
+            <div class="stat-icon" style="background:#dcfce7;color:#22c55e;"><i class="fas fa-user-check"></i></div>
+            <div>
+                <div class="stat-label">Active Users</div>
+                <div class="stat-value">@Model.Users.Count(u => u.IsActive)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card bg-white">
+            <div class="stat-icon" style="background:#fee2e2;color:#ef4444;"><i class="fas fa-user-shield"></i></div>
+            <div>
+                <div class="stat-label">Admins</div>
+                <div class="stat-value">@Model.Users.Count(u => u.Role == "Admin")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table Card -->
+<div class="card">
+    <div class="card-header ch-dark d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-users-cog me-2"></i>User Accounts</span>
+        <button class="btn btn-orange btn-sm" onclick="openAddModal()">
+            <i class="fas fa-user-plus me-1"></i> Add User
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int i = 1; }
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td class="text-muted">@(i++)</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div style="width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;">
+                                        @user.FullName.Substring(0,1).ToUpper()
+                                    </div>
+                                    <span class="fw-bold">@user.FullName</span>
+                                </div>
+                            </td>
+                            <td><code>@user.Username</code></td>
+                            <td><small>@user.Email</small></td>
+                            <td>
+                                @if (user.Role == "Admin")
+                                {
+                                    <span class="badge bg-danger">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Staff</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark border">Inactive</span>
+                                }
+                            </td>
+                            <td><small class="text-muted">@user.CreatedDate.ToString("dd-MM-yyyy")</small></td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick='editUser(@user.UserId,"@user.FullName","@user.Username","@user.Email","@user.Role",@(user.IsActive?"true":"false"))'>
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    @if (user.Username != User.Identity!.Name)
+                                    {
+                                        <button class="btn btn-sm @(user.IsActive ? "btn-outline-warning" : "btn-outline-success")"
+                                            onclick="toggleUser(@user.UserId, @(user.IsActive?"true":"false"))"
+                                            title="@(user.IsActive ? "Deactivate" : "Activate")">
+                                            <i class="fas fa-@(user.IsActive ? "ban" : "check")"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(@user.UserId)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header ch-dark">
+                <h5 class="modal-title text-white" id="userModalTitle">Add User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editUserId" value="0" />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label>Full Name *</label>
+                        <input type="text" id="fullName" class="form-control" placeholder="e.g. Gopi Krishna" />
+                    </div>
+                    <div class="col-md-6">
+                        <label>Username *</label>
+                        <input type="text" id="username" class="form-control" placeholder="e.g. gopi123" />
+                    </div>
+                    <div class="col-md-12">
+                        <label>Email *</label>
+                        <input type="email" id="userEmail" class="form-control" placeholder="email@example.com" />
+                    </div>
+                    <div class="col-md-6">
+                        <label id="passLabel">Password *</label>
+                        <input type="password" id="password" class="form-control" placeholder="Enter password" />
+                        <small class="text-muted" id="passHint"></small>
+                    </div>
+                    <div class="col-md-6">
+                        <label>Role *</label>
+                        <select id="userRole" class="form-select">
+                            <option value="User">Staff (User)</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            <input type="checkbox" id="isActiveCheck" class="form-check-input" checked />
+                            <label class="form-check-label" for="isActiveCheck">Active Account</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-orange btn-sm" onclick="saveUser()" id="saveUserBtn">
+                    <i class="fas fa-save me-1"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const afToken = document.getElementById('afToken').value;
+
+    function openAddModal() {
+        document.getElementById('userModalTitle').innerText = 'Add New User';
+        document.getElementById('editUserId').value = '0';
+        document.getElementById('fullName').value = '';
+        document.getElementById('username').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('userRole').value = 'User';
+        document.getElementById('isActiveCheck').checked = true;
+        document.getElementById('passLabel').innerText = 'Password *';
+        document.getElementById('passHint').innerText = '';
+        document.getElementById('username').readOnly = false;
+        new bootstrap.Modal(document.getElementById('userModal')).show();
+    }
+
+    function editUser(id, fullName, username, email, role, isActive) {
+        document.getElementById('userModalTitle').innerText = 'Edit User';
+        document.getElementById('editUserId').value = id;
+        document.getElementById('fullName').value = fullName;
+        document.getElementById('username').value = username;
+        document.getElementById('userEmail').value = email;
+        document.getElementById('password').value = '';
+        document.getElementById('userRole').value = role;
+        document.getElementById('isActiveCheck').checked = isActive;
+        document.getElementById('passLabel').innerText = 'New Password';
+        document.getElementById('passHint').innerText = 'Leave blank to keep existing password';
+        document.getElementById('username').readOnly = true;
+        new bootstrap.Modal(document.getElementById('userModal')).show();
+    }
+
+    async function saveUser() {
+        const userId = parseInt(document.getElementById('editUserId').value);
+        const fullName = document.getElementById('fullName').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('userEmail').value.trim();
+        const password = document.getElementById('password').value;
+        const role = document.getElementById('userRole').value;
+        const isActive = document.getElementById('isActiveCheck').checked;
+
+        if (!fullName || !username || !email) { alert('Please fill all required fields'); return; }
+        if (userId === 0 && !password) { alert('Password is required for new users'); return; }
+
+        const btn = document.getElementById('saveUserBtn');
+        btn.disabled = true; btn.innerHTML = '⏳ Saving...';
+
+        const fd = new FormData();
+        fd.append('userId', userId);
+        fd.append('fullName', fullName);
+        fd.append('username', username);
+        fd.append('email', email);
+        fd.append('password', password);
+        fd.append('role', role);
+        fd.append('isActive', isActive ? 'true' : 'false');
+        fd.append('__RequestVerificationToken', afToken);
+
+        try {
+            const resp = await fetch('?handler=SaveUser', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i> Save';
+        }
+    }
+
+    async function toggleUser(userId, isActive) {
+        const action = isActive ? 'deactivate' : 'activate';
+        if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+
+        const fd = new FormData();
+        fd.append('userId', userId);
+        fd.append('isActive', (!isActive).toString());
+        fd.append('__RequestVerificationToken', afToken);
+
+        const resp = await fetch('?handler=ToggleUser', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.success) window.location.reload();
+        else alert('Error: ' + data.message);
+    }
+
+    async function deleteUser(userId) {
+        if (!confirm('Delete this user? This cannot be undone.')) return;
+
+        const fd = new FormData();
+        fd.append('userId', userId);
+        fd.append('__RequestVerificationToken', afToken);
+
+        const resp = await fetch('?handler=DeleteUser', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.success) window.location.reload();
+        else alert('Error: ' + data.message);
+    }
+</script>

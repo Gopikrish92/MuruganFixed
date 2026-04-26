@@ -1,0 +1,268 @@
+@page
+@model MuruganRestaurant.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Login";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Murugan Restaurant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --navy: #0f1729;
+            --navy-mid: #162040;
+            --gold: #c9a84c;
+            --gold-light: #e8c96d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--navy);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated background */
+        .bg-pattern {
+            position: fixed; inset: 0; z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 50%, rgba(201,168,76,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 80% at 80% 30%, rgba(30,45,85,0.9) 0%, transparent 70%),
+                url('https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=70') center/cover;
+        }
+        .bg-overlay {
+            position: fixed; inset: 0; z-index: 1;
+            background: linear-gradient(135deg, rgba(15,23,41,0.92) 0%, rgba(22,32,64,0.85) 100%);
+        }
+
+        /* Decorative circles */
+        .deco {
+            position: fixed; border-radius: 50%;
+            background: rgba(201,168,76,0.06);
+            z-index: 2; pointer-events: none;
+        }
+        .deco-1 { width: 400px; height: 400px; top: -120px; right: -100px; }
+        .deco-2 { width: 280px; height: 280px; bottom: -80px; left: -60px; }
+        .deco-3 { width: 160px; height: 160px; bottom: 120px; right: 80px; background: rgba(201,168,76,0.04); }
+
+        /* Card */
+        .login-wrap {
+            position: relative; z-index: 10;
+            width: 100%; max-width: 420px;
+            padding: 20px;
+            animation: fadeUp .5s ease;
+        }
+        @@keyframes fadeUp {
+            from { opacity:0; transform:translateY(28px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+
+        .login-card {
+            background: rgba(255,255,255,0.97);
+            border-radius: 24px;
+            padding: 40px 38px 36px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(201,168,76,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        /* Gold top bar */
+        .login-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+        }
+
+        /* Logo */
+        .login-logo {
+            text-align: center; margin-bottom: 28px;
+        }
+        .logo-circle {
+            width: 80px; height: 80px;
+            background: var(--navy);
+            border-radius: 20px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 38px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(15,23,41,0.25);
+            position: relative;
+        }
+        .logo-circle::after {
+            content: '';
+            position: absolute; inset: -3px;
+            border-radius: 22px;
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, var(--gold), var(--gold-light)) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
+        .brand-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 28px; font-weight: 800;
+            color: var(--navy);
+            line-height: 1.1; margin-bottom: 4px;
+        }
+        .brand-sub {
+            font-size: 12.5px; color: #9ca3af;
+            font-weight: 500; letter-spacing: .3px;
+        }
+
+        /* Divider */
+        .login-divider {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 24px;
+        }
+        .login-divider::before, .login-divider::after {
+            content: ''; flex: 1; height: 1px; background: #e4e9f2;
+        }
+        .login-divider span {
+            font-size: 11px; color: #9ca3af; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        /* Fields */
+        .field-wrap { margin-bottom: 18px; }
+        .field-label {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 12.5px; font-weight: 700; color: var(--navy);
+            margin-bottom: 8px;
+        }
+        .field-label .fi {
+            width: 22px; height: 22px;
+            background: rgba(201,168,76,0.12);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: var(--gold);
+        }
+        .field-input {
+            width: 100%;
+            border: 1.5px solid #e4e9f2;
+            border-radius: 12px;
+            padding: 13px 16px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            background: #f9fafb;
+            transition: all .2s;
+            outline: none;
+            color: var(--navy);
+        }
+        .field-input::placeholder { color: #c4c8d4; }
+        .field-input:focus {
+            border-color: var(--gold);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(201,168,76,0.14);
+        }
+
+        /* Submit */
+        .btn-login {
+            width: 100%; padding: 15px;
+            border: none; border-radius: 13px;
+            background: linear-gradient(135deg, var(--navy), var(--navy-mid));
+            color: #fff;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px; font-weight: 700;
+            cursor: pointer;
+            transition: all .2s;
+            box-shadow: 0 4px 18px rgba(15,23,41,0.28);
+            position: relative; overflow: hidden;
+            letter-spacing: .3px;
+            margin-top: 4px;
+        }
+        .btn-login::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(201,168,76,0.1), transparent);
+            opacity: 0; transition: opacity .2s;
+        }
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(15,23,41,0.35); }
+        .btn-login:hover::before { opacity: 1; }
+        .btn-login:active { transform: translateY(0); }
+
+        /* Gold accent stripe on button */
+        .btn-login-inner {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-login-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--gold-light);
+        }
+
+        /* Error */
+        .error-msg {
+            background: #fef2f2; border: 1px solid #fecaca;
+            border-radius: 10px; padding: 11px 14px;
+            color: #dc2626; font-size: 13px; font-weight: 600;
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="bg-overlay"></div>
+    <div class="deco deco-1"></div>
+    <div class="deco deco-2"></div>
+    <div class="deco deco-3"></div>
+
+    <div class="login-wrap">
+        <div class="login-card">
+
+            <div class="login-logo">
+                <div class="logo-circle">🍽️</div>
+                <div class="brand-title">Murugan Restaurant</div>
+                <div class="brand-sub">Billing Management System</div>
+            </div>
+
+            <div class="login-divider"><span>Sign in to continue</span></div>
+
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="error-msg">
+                    <i class="fas fa-exclamation-circle"></i> @Model.ErrorMessage
+                </div>
+            }
+
+            <form method="post">
+                <div class="field-wrap">
+                    <div class="field-label">
+                        <div class="fi"><i class="fas fa-user"></i></div>
+                        Username
+                    </div>
+                    <input asp-for="Login.Username" class="field-input"
+                           placeholder="Enter your username" autocomplete="username" required />
+                </div>
+
+                <div class="field-wrap">
+                    <div class="field-label">
+                        <div class="fi"><i class="fas fa-lock"></i></div>
+                        Password
+                    </div>
+                    <input asp-for="Login.Password" type="password" class="field-input"
+                           placeholder="Enter your password" autocomplete="current-password" required />
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <div class="btn-login-inner">
+                        <div class="btn-login-dot"></div>
+                        <i class="fas fa-sign-in-alt"></i>
+                        Sign In
+                        <div class="btn-login-dot"></div>
+                    </div>
+                </button>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
